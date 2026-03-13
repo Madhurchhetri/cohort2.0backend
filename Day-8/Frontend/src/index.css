@@ -1,0 +1,29 @@
+*{
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background-color: rgb(22, 22, 22);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.notes{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 1rem;
+  
+}
+.note{
+  padding: 20px;
+  background-color: rgb(44, 42, 42);
+  border: none;
+  border-radius: 0.25rem;
+  max-width: 20rem;
+  color: white;
+}

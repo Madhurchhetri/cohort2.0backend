@@ -13,7 +13,7 @@ const App = () => {
   },[])
   return (
     <>
-      <h1 className='text-2xl text-blue-700'>welcom to perplexity app</h1>
+      
       <Routes>
       <Route path='/' element={<Protected><Dashboard/></Protected>}/>
         <Route path='/login' element={<Login/>}/>

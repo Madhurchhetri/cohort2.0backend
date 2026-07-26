@@ -10,52 +10,64 @@ import { sendEmail } from "../services/mail.service.js";
  * @body { username, email, password }
  */
 export async function register(req, res) {
+    try {
+        const { username, email, password } = req.body;
 
-    const { username, email, password } = req.body;
+        console.log("👉 REGISTER HIT");
+        console.log("👉 EMAIL:", email);
 
-    const isUserAlreadyExists = await userModel.findOne({
-        $or: [ { email }, { username } ]
-    })
+        const isUserAlreadyExists = await userModel.findOne({
+            $or: [{ email }, { username }]
+        });
 
-    if (isUserAlreadyExists) {
-        return res.status(400).json({
-            message: "User with this email or username already exists",
-            success: false,
-            err: "User already exists"
-        })
-    }
-
-    const user = await userModel.create({ username, email, password })
-
-    const emailVerificationToken = jwt.sign({
-        email: user.email,
-    }, process.env.JWT_SECRET)
-
-    await sendEmail({
-        to: email,
-        subject: "Welcome to Perplexity!",
-        html: `
-                <p>Hi ${username},</p>
-                <p>Thank you for registering at <strong>Perplexity</strong>. We're excited to have you on board!</p>
-                <p>Please verify your email address by clicking the link below:</p>
-                <a href="http://localhost:3000/api/auth/verify-email?token=${emailVerificationToken}">Verify Email</a>
-                <p>If you did not create an account, please ignore this email.</p>
-                <p>Best regards,<br>The Perplexity Team</p>
-        `
-    })
-
-    res.status(201).json({
-        message: "User registered successfully",
-        success: true,
-        user: {
-            id: user._id,
-            username: user.username,
-            email: user.email
+        if (isUserAlreadyExists) {
+            return res.status(400).json({
+                message: "User already exists",
+                success: false,
+            });
         }
-    });
 
+        const user = await userModel.create({ username, email, password });
 
+        const emailVerificationToken = jwt.sign(
+            { email: user.email },
+            process.env.JWT_SECRET
+        );
 
+        console.log("👉 SENDING EMAIL...");
+
+        // ❌ DON'T BLOCK REGISTER
+        sendEmail({
+            to: email,
+            subject: "Verify Email",
+            html: `
+                <p>Click below:</p>
+                <a href="http://localhost:3000/api/auth/verify-email?token=${emailVerificationToken}">
+                Verify
+                </a>
+            `
+        }).catch(err => {
+            console.log("❌ EMAIL FAILED:", err.message);
+        });
+
+        // ✅ RESPONSE IMMEDIATELY
+        res.status(201).json({
+            message: "User registered successfully",
+            success: true,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email
+            }
+        });
+
+    } catch (err) {
+        console.log("❌ REGISTER ERROR:", err.message);
+
+        res.status(500).json({
+            message: err.message
+        });
+    }
 }
 
 /**
@@ -87,20 +99,24 @@ export async function login(req, res) {
         })
     }
 
-    if (!user.verified) {
-        return res.status(400).json({
-            message: "Please verify your email before logging in",
-            success: false,
-            err: "Email not verified"
-        })
-    }
+    // if (!user.verified) {
+    //     return res.status(400).json({
+    //         message: "Please verify your email before logging in",
+    //         success: false,
+    //         err: "Email not verified"
+    //     })
+    // }
 
     const token = jwt.sign({
         id: user._id,
         username: user.username,
     }, process.env.JWT_SECRET, { expiresIn: '7d' })
 
-    res.cookie("token", token)
+    res.cookie("token", token , {
+        httpOnly: true,
+        secure: false,   
+        sameSite: "lax",
+})
 
     res.status(200).json({
         message: "Login successful",

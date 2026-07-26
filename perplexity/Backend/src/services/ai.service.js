@@ -124,3 +124,24 @@ export async function generateChatTitle(message) {
 
   return response.text;
 }
+
+export async function analyzeImage(imageUrl, prompt = "Describe this image") {
+  try {
+    const response = await geminiModel.invoke([
+      new HumanMessage({
+        content: [
+          { type: "text", text: prompt },
+          {
+            type: "image_url",
+            image_url: imageUrl,
+          },
+        ],
+      }),
+    ]);
+
+    return response.content;
+  } catch (error) {
+    console.log("⚠️ Image analysis failed:", error);
+    return "Sorry, I couldn't understand the image.";
+  }
+}

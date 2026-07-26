@@ -1,15 +1,22 @@
-import { generateResponse, generateChatTitle } from "../services/ai.service.js";
+import { generateResponse, generateChatTitle,analyzeImage  } from "../services/ai.service.js";
 import chatModel from "../models/chat.model.js"
 import messageModel from "../models/message.model.js";
+import { uploadImage } from "../services/cloudinary.service.js";
 
 export async function sendMessage(req, res) {
 
     const { message,  chatId } = req.body;
 
     let title = null, chat = null;
+     let imageUrl = null;
+
+         if (req.file) {
+        const result = await uploadImage(req.file.path);
+        imageUrl = result.secure_url;
+    }
 
     if (!chatId) {
-        title = await generateChatTitle(message);
+        title = await generateChatTitle(message || "Image message");
         chat = await chatModel.create({
             user: req.user.id,
             title
@@ -21,7 +28,8 @@ export async function sendMessage(req, res) {
     // 1. save user message
     await messageModel.create({
         chat: currentChatId,
-        content: message,
+        content: message || "",
+        image: imageUrl,
         role: "user"
     })
 
@@ -32,15 +40,31 @@ export async function sendMessage(req, res) {
 
     try {
 
-        // 🔥 DEBUG
-        console.log("MESSAGES:", messages.map(m => ({
+           // ✅ FORMAT FOR AI (IMPORTANT)
+        const formattedMessages = messages.map(m => ({
             role: m.role,
-            content: m.content
-        })))
+            content: m.content || ""
+        }));
 
-        // 3. AI response
-        const result = await generateResponse(messages);
+        let result;
 
+                // 🤖 IMAGE AI (PRIORITY)
+        if (imageUrl) {
+            console.log("🖼️ Image detected, running AI analysis...");
+
+            if (typeof analyzeImage !== "function") {
+                 throw new Error("analyzeImage function missing");
+            }
+            result = await analyzeImage(
+                imageUrl,
+                message || "Explain this image simply"
+            );
+        } 
+        
+        // 💬 NORMAL CHAT
+        else {
+            result = await generateResponse(formattedMessages);
+        }
         // 4. save AI message
         const aiMessage = await messageModel.create({
             chat: currentChatId,

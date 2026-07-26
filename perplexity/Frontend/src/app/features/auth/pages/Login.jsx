@@ -23,8 +23,10 @@ const Login = () => {
             password,
         }
 
-        await handleLogin(payload)
-        navigate("/")
+      const res =  await handleLogin(payload)
+        if (res?.success) {
+        navigate("/");
+    }
 
     }
 

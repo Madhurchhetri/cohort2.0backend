@@ -181,7 +181,7 @@
 //         </button>
 
 //         {/* Sidebar */}
-        
+
 //         <aside
 //           className={`fixed top-0 left-0 z-40 h-full w-72 transform bg-[#0b1020] p-5 transition-transform duration-300 md:relative md:translate-x-0 md:flex md:flex-col rounded-r-3xl border-r border-white/10 ${
 //             sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -300,7 +300,6 @@
 // };
 
 // export default Dashboard;
-
 
 // import React, { useEffect, useState } from "react";
 // import ReactMarkdown from "react-markdown";
@@ -547,12 +546,11 @@
 
 // export default Dashboard;
 
-
 import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useSelector } from "react-redux";
 import { useChat } from "../hooks/useChat";
-import { Send, Plus, Menu, X, Trash2, Star } from "lucide-react";
+import { Send, Plus, Menu, X, Trash2, Star, Paperclip } from "lucide-react";
 import remarkGfm from "remark-gfm";
 
 const Dashboard = () => {
@@ -566,9 +564,15 @@ const Dashboard = () => {
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [pinned, setPinned] = useState({});
+  const [image, setImage] = useState(null);
+  const [file, setFile] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
 
   const chats = useSelector((state) => state.chat.chats);
   const currentChatId = useSelector((state) => state.chat.currentChatId);
+
+  const selectedCount = (image ? 1 : 0) + (file ? 1 : 0);
 
   useEffect(() => {
     chat.initializeSocketConnection();
@@ -578,10 +582,17 @@ const Dashboard = () => {
   const handleSubmitMessage = (e) => {
     e.preventDefault();
     const msg = chatInput.trim();
-    if (!msg) return;
+    if (!msg && !image && !file) return;
 
-    chat.handleSendMessage({ message: msg, chatId: currentChatId });
+    chat.handleSendMessage({
+      message: msg,
+      chatId: currentChatId,
+      image,
+      file,
+    });
     setChatInput("");
+    setImage(null);
+    setFile(null);
   };
 
   const openChat = (id) => {
@@ -600,7 +611,6 @@ const Dashboard = () => {
       title: deletedChat.title,
       chat: deletedChat,
     });
-    
 
     setConfirmDeleteId(null);
 
@@ -610,16 +620,14 @@ const Dashboard = () => {
   // 🔁 Undo delete (REAL)
   const undoDelete = async () => {
     console.log("TOAST:", toast);
-  if (!toast?.chat?.id && !toast?.chat?._id) return;
+    if (!toast?.chat?.id && !toast?.chat?._id) return;
 
-  const id = toast.chat.id || toast.chat._id;
+    const id = toast.chat.id || toast.chat._id;
 
-  await chat.handleRestoreChat(id);
+    await chat.handleRestoreChat(id);
 
-  setToast(null);
-};
-
-
+    setToast(null);
+  };
 
   // ⭐ Pin toggle
   const togglePin = (id) => {
@@ -631,15 +639,32 @@ const Dashboard = () => {
 
   // 🔍 Filter + sort
   const filteredChats = Object.values(chats)
-    .filter((c) =>
-      c.title.toLowerCase().includes(search.toLowerCase())
-    )
+    .filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => (pinned[b.id] ? 1 : 0) - (pinned[a.id] ? 1 : 0));
+
+    // / 🖱️ Drag & Drop
+     const handleDrop = (e) => {
+       e.preventDefault(); 
+       setDragActive(false);
+        const droppedFile = e.dataTransfer.files[0]; 
+        if (!droppedFile) return;
+         if (droppedFile.type.startsWith("image")) {
+           setImage(droppedFile);
+           } else {
+             setFile(droppedFile); 
+            } 
+          };
+           const handleDragOver = (e) => {
+             e.preventDefault(); 
+             setDragActive(true);
+             }; 
+             const handleDragLeave = () => {
+               setDragActive(false);
+               };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#0a0f1f] via-[#0d1328] to-[#05070d] p-4 text-white">
       <section className="mx-auto flex h-[calc(100vh-2rem)] max-w-7xl gap-5 relative">
-
         {/* Mobile Menu */}
         <button
           onClick={() => setSidebarOpen(true)}
@@ -647,7 +672,6 @@ const Dashboard = () => {
         >
           <Menu size={20} />
         </button>
-
         {/* Sidebar */}
         <aside
           className={`fixed top-0 left-0 z-40 h-full w-72 bg-[#0b1020] p-5 transition-transform duration-300 md:relative md:translate-x-0 ${
@@ -684,9 +708,7 @@ const Dashboard = () => {
               <div
                 key={c.id}
                 className={`flex items-center gap-2 p-2 rounded-xl transition ${
-                  currentChatId === c.id
-                    ? "bg-white/20"
-                    : "hover:bg-white/10"
+                  currentChatId === c.id ? "bg-white/20" : "hover:bg-white/10"
                 }`}
               >
                 <button
@@ -713,14 +735,16 @@ const Dashboard = () => {
             ))}
           </div>
         </aside>
-
         {/* Confirm Modal */}
         {confirmDeleteId && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/60">
             <div className="bg-[#0b1020] p-6 rounded-xl">
               <p>Are you sure you want to delete?</p>
               <div className="flex gap-3 mt-4">
-                <button onClick={() => setConfirmDeleteId(null)} className="cursor-pointer">
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="cursor-pointer"
+                >
                   Cancel
                 </button>
                 <button
@@ -733,7 +757,6 @@ const Dashboard = () => {
             </div>
           </div>
         )}
-
         {/* Toast */}
         {toast && (
           <div className="fixed z-10 bottom-10 right-4 bg-black px-4 py-3 rounded-lg">
@@ -746,7 +769,6 @@ const Dashboard = () => {
             </button>
           </div>
         )}
-
         {/* Overlay */}
         {sidebarOpen && (
           <div
@@ -754,19 +776,15 @@ const Dashboard = () => {
             className="fixed inset-0 bg-black/50 z-30 md:hidden"
           />
         )}
-
         {/* Chat Section */}
         <section className="flex flex-1 flex-col rounded-3xl bg-white/5 p-4 border border-white/10">
-
           {/* Messages */}
           <div className="flex-1 space-y-4 overflow-y-auto pb-32 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {chats[currentChatId]?.messages.map((m, i) => (
               <div
                 key={i}
                 className={`max-w-[75%] p-3 rounded-xl ${
-                  m.role === "user"
-                    ? "ml-auto bg-indigo-500"
-                    : "bg-white/10"
+                  m.role === "user" ? "ml-auto bg-indigo-500" : "bg-white/10"
                 }`}
               >
                 {m.role === "user" ? (
@@ -780,11 +798,50 @@ const Dashboard = () => {
             ))}
           </div>
 
+            {/* Preview */}
+
+          {(image || file) && ( 
+            <div className="flex gap-2 mb-2 items-center">
+             {image && ( 
+              <div className="relative">
+               <img src={URL.createObjectURL(image)} className="h-16 rounded" />
+                <button onClick={() => setImage(null)} className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1" > 
+                <X size={12} />
+                 </button> 
+                 </div>
+                  )
+                  }
+                  {file && ( 
+                    <div className="relative bg-white/10 p-2 rounded">
+                     📄 {file.name} 
+                     <button onClick={() => setFile(null)} className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1" >
+                      <X size={12} /> 
+                      </button> 
+                      </div>
+                       )}
+                       
+                     </div> 
+                     )}
+
           {/* Input */}
           <form
             onSubmit={handleSubmitMessage}
             className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-3"
           >
+            <button
+              type="button"
+              onClick={() => setShowUploadModal(true)}
+              className={`p-2 rounded cursor-pointer ${ selectedCount > 0 ? "bg-indigo-500" : "bg-white/10" }`}
+            >
+              
+              <Paperclip size={18} />{" "}
+            </button>
+            {selectedCount > 0 && (
+               <span className="absolute -top-2 -right-2 bg-red-500 text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                {selectedCount}
+                 </span>
+                )}
+
             <input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
@@ -796,9 +853,310 @@ const Dashboard = () => {
             </button>
           </form>
         </section>
+        
+        {showUploadModal && (
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+            onClick={() => setShowUploadModal(false)}
+          >
+            {" "}
+            <div
+              className="bg-[#0b1020] p-6 rounded-2xl w-80 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {" "}
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="absolute top-3 right-3 cursor-pointer"
+              >
+                {" "}
+                <X size={18} />
+              </button>
+              <h2 className="mb-4 text-lg font-semibold">Upload</h2>{" "}
+              <label className="block mb-3 cursor-pointer bg-white/10 p-3 rounded-xl text-center">
+                📸 Upload Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    setImage(e.target.files[0]);
+                    setShowUploadModal(false);
+                  }}
+                />
+              </label>
+              <label className="block cursor-pointer bg-white/10 p-3 rounded-xl text-center">
+                📄 Upload File
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    setFile(e.target.files[0]);
+                    setShowUploadModal(false);
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );
 };
 
 export default Dashboard;
+
+
+
+// import React, { useEffect, useState } from "react";
+// import ReactMarkdown from "react-markdown";
+// import { useSelector } from "react-redux";
+// import { useChat } from "../hooks/useChat";
+// import { Send, Plus, X, Trash2, Star, Paperclip } from "lucide-react";
+// import remarkGfm from "remark-gfm";
+
+// const Dashboard = () => {
+//   const chat = useChat();
+
+//   const [chatInput, setChatInput] = useState("");
+//   const [search, setSearch] = useState("");
+//   const [pinned, setPinned] = useState({});
+//   const [image, setImage] = useState(null);
+//   const [file, setFile] = useState(null);
+//   const [showUploadModal, setShowUploadModal] = useState(false);
+//   const [dragActive, setDragActive] = useState(false);
+
+//   const chats = useSelector((state) => state.chat.chats);
+//   const currentChatId = useSelector((state) => state.chat.currentChatId);
+
+//   const selectedCount = (image ? 1 : 0) + (file ? 1 : 0);
+
+//   useEffect(() => {
+//     chat.initializeSocketConnection();
+//     chat.handleGetChats();
+//   }, []);
+
+//   const handleSubmitMessage = (e) => {
+//     e.preventDefault();
+//     if (!chatInput && !image && !file) return;
+
+//     chat.handleSendMessage({
+//       message: chatInput,
+//       chatId: currentChatId,
+//       image,
+//       file,
+//     });
+
+//     setChatInput("");
+//     setImage(null);
+//     setFile(null);
+//   };
+
+//   // 🖱️ Drag & Drop
+//   const handleDrop = (e) => {
+//     e.preventDefault();
+//     setDragActive(false);
+
+//     const droppedFile = e.dataTransfer.files[0];
+//     if (!droppedFile) return;
+
+//     if (droppedFile.type.startsWith("image")) {
+//       setImage(droppedFile);
+//     } else {
+//       setFile(droppedFile);
+//     }
+//   };
+
+//   const handleDragOver = (e) => {
+//     e.preventDefault();
+//     setDragActive(true);
+//   };
+
+//   const handleDragLeave = () => {
+//     setDragActive(false);
+//   };
+
+//   return (
+//     <main
+//       className={`min-h-screen p-4 text-white ${
+//         dragActive ? "bg-indigo-900/40" : "bg-[#0a0f1f]"
+//       }`}
+//       onDrop={handleDrop}
+//       onDragOver={handleDragOver}
+//       onDragLeave={handleDragLeave}
+//     >
+//       <section className="mx-auto flex max-w-6xl gap-4">
+
+//         {/* Sidebar */}
+//         <aside className="w-64 bg-[#0b1020] p-4 rounded-xl">
+//           <button
+//             onClick={chat.handleNewChat}
+//             className="w-full mb-3 flex items-center justify-center gap-2 bg-indigo-500 px-3 py-2 rounded"
+//           >
+//             <Plus size={16} /> New Chat
+//           </button>
+
+//           <input
+//             value={search}
+//             onChange={(e) => setSearch(e.target.value)}
+//             placeholder="Search..."
+//             className="w-full mb-3 p-2 rounded bg-[#161b2b]"
+//           />
+
+//           {Object.values(chats).map((c) => (
+//             <div key={c.id} className="flex justify-between p-2 hover:bg-white/10 rounded">
+//               <button onClick={() => chat.handleOpenChat(c.id)}>
+//                 {c.title}
+//               </button>
+//               <Trash2 size={14} />
+//             </div>
+//           ))}
+//         </aside>
+
+//         {/* Chat */}
+//         <section className="flex-1 flex flex-col bg-white/5 p-4 rounded-xl">
+
+//           {/* Messages */}
+//           <div className="flex-1 overflow-y-auto space-y-3">
+//             {chats[currentChatId]?.messages.map((m, i) => (
+//               <div
+//                 key={i}
+//                 className={`p-3 rounded max-w-[70%] ${
+//                   m.role === "user"
+//                     ? "ml-auto bg-indigo-500"
+//                     : "bg-white/10"
+//                 }`}
+//               >
+//                 {m.image && (
+//                   <img
+//                     src={m.image}
+//                     className="mb-2 rounded max-h-60"
+//                   />
+//                 )}
+
+//                 {m.role === "user" ? (
+//                   m.content
+//                 ) : (
+//                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
+//                     {m.content}
+//                   </ReactMarkdown>
+//                 )}
+//               </div>
+//             ))}
+//           </div>
+
+//           {/* Preview */}
+//           {(image || file) && (
+//             <div className="flex gap-2 mb-2 items-center">
+//               {image && (
+//                 <div className="relative">
+//                   <img
+//                     src={URL.createObjectURL(image)}
+//                     className="h-16 rounded"
+//                   />
+//                   <button
+//                     onClick={() => setImage(null)}
+//                     className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"
+//                   >
+//                     <X size={12} />
+//                   </button>
+//                 </div>
+//               )}
+
+//               {file && (
+//                 <div className="relative bg-white/10 p-2 rounded">
+//                   📄 {file.name}
+//                   <button
+//                     onClick={() => setFile(null)}
+//                     className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"
+//                   >
+//                     <X size={12} />
+//                   </button>
+//                 </div>
+//               )}
+//             </div>
+//           )}
+
+//           {/* Input */}
+//           <form onSubmit={handleSubmitMessage} className="flex gap-2">
+
+//             {/* 📎 ICON + BADGE */}
+//             <div className="relative">
+//               <button
+//                 type="button"
+//                 onClick={() => setShowUploadModal(true)}
+//                 className={`p-2 rounded ${
+//                   selectedCount > 0 ? "bg-indigo-500" : "bg-white/10"
+//                 }`}
+//               >
+//                 <Paperclip size={18} />
+//               </button>
+
+//               {selectedCount > 0 && (
+//                 <span className="absolute -top-2 -right-2 bg-red-500 text-xs w-5 h-5 flex items-center justify-center rounded-full">
+//                   {selectedCount}
+//                 </span>
+//               )}
+//             </div>
+
+//             <input
+//               value={chatInput}
+//               onChange={(e) => setChatInput(e.target.value)}
+//               className="flex-1 p-2 rounded bg-black/30"
+//               placeholder="Type message..."
+//             />
+
+//             <button className="bg-indigo-500 px-3 rounded">
+//               <Send size={16} />
+//             </button>
+//           </form>
+//         </section>
+
+//         {/* Modal */}
+//         {showUploadModal && (
+//           <div
+//             className="fixed inset-0 bg-black/60 flex items-center justify-center"
+//             onClick={() => setShowUploadModal(false)}
+//           >
+//             <div
+//               className="bg-[#0b1020] p-5 rounded-xl"
+//               onClick={(e) => e.stopPropagation()}
+//             >
+//               <button onClick={() => setShowUploadModal(false)}>
+//                 <X />
+//               </button>
+
+//               <label className="block mt-3 cursor-pointer">
+//                 📸 Image
+//                 <input
+//                   type="file"
+//                   hidden
+//                   accept="image/*"
+//                   onChange={(e) => {
+//                     setImage(e.target.files[0]);
+//                     setShowUploadModal(false);
+//                   }}
+//                 />
+//               </label>
+
+//               <label className="block mt-3 cursor-pointer">
+//                 📄 File
+//                 <input
+//                   type="file"
+//                   hidden
+//                   onChange={(e) => {
+//                     setFile(e.target.files[0]);
+//                     setShowUploadModal(false);
+//                   }}
+//                 />
+//               </label>
+//             </div>
+//           </div>
+//         )}
+//       </section>
+//     </main>
+//   );
+// };
+
+// export default Dashboard;
+

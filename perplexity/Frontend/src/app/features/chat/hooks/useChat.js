@@ -9,9 +9,9 @@ export const useChat = () => {
     const dispatch = useDispatch()
 
 
-    async function handleSendMessage({ message, chatId }) {
+    async function handleSendMessage({ message, chatId , image, file}) {
         dispatch(setLoading(true))
-        const data = await sendMessage({ message, chatId })
+        const data = await sendMessage({ message, chatId , image, file })
         const { chat, aiMessage } = data
 
         const currentChatId = chatId || chat._id
@@ -28,6 +28,7 @@ export const useChat = () => {
             chatId: currentChatId,
             content: message,
             role: "user",
+            image: image ? URL.createObjectURL(image) : null,
         }))
         dispatch(addNewMessage({
             chatId: currentChatId,
@@ -61,6 +62,7 @@ export const useChat = () => {
         const formattedMessages = messages.map(msg => ({
             content: msg.content,
             role: msg.role,
+            image: msg.image || null
         }))
         dispatch(addMessages({
             chatId,
